@@ -1,5 +1,6 @@
 var socket = io();
 var beepAudio = document.getElementById('beep-sound');
+var monitoringStarted = false;
 
 // Definición de trazos para los gráficos en tiempo real
 function createTrace(name) {
@@ -84,6 +85,7 @@ document.getElementById('file-input').addEventListener('change', function(event)
                 DV0: parseFloat(document.getElementById('DV0').value),
                 PP0: parseFloat(document.getElementById('PP0').value)
             };
+            monitoringStarted = false;
             socket.emit('selected_file', params);
         };
     }
@@ -152,6 +154,11 @@ function getStaticFileParams(index) {
 
 socket.on('new_data', function(data) {
     console.log('Datos recibidos:', data);
+    if (beepAudio && !monitoringStarted) {
+        beepAudio.currentTime = 0;
+        beepAudio.play();
+        monitoringStarted = true;
+    }
     updateMonitoringPanel(data);
     updateRealTimeData(data);
     redrawGraphs();
@@ -189,10 +196,6 @@ socket.on('static_data', function(static_data) {
         addStaticTraces(file_data);
     });
     plotStaticData();
-    if (beepAudio) {
-        beepAudio.currentTime = 0;
-        beepAudio.play();
-    }
 });
 
 function resetStaticTraces() {
