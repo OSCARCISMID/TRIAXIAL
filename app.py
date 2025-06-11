@@ -244,8 +244,24 @@ if __name__ == '__main__':
         default=os.environ.get('LOG_LEVEL', 'INFO'),
         help='Set logging level (default: %(default)s)'
     )
+    # Determine debug mode from environment variable or CLI
+    env_debug = os.environ.get('DEBUG', 'False').lower() in ('1', 'true', 'yes')
+    parser.add_argument(
+        '--debug',
+        dest='debug',
+        action='store_true',
+        help='Enable debug mode'
+    )
+    parser.add_argument(
+        '--no-debug',
+        dest='debug',
+        action='store_false',
+        help='Disable debug mode'
+    )
+    parser.set_defaults(debug=env_debug)
+
     args = parser.parse_args()
     logging.getLogger().setLevel(
         getattr(logging, args.log_level.upper(), logging.INFO)
     )
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=args.debug)

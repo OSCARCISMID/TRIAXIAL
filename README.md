@@ -16,7 +16,9 @@ Real-time plotting tool for triaxial tests.
 4. (Optional) Set the `LOG_LEVEL` environment variable or pass `--log-level`
    when running the application to adjust logging verbosity (e.g. `DEBUG`,
    `INFO`).
-5. Run the application:
+5. (Optional) Control debug mode using the `DEBUG` environment variable or the
+   `--debug`/`--no-debug` command-line flags when starting the application.
+6. Run the application:
    ```bash
    python app.py
    ```
