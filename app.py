@@ -1,0 +1,127 @@
+from flask import Flask, render_template, request, jsonify
+from flask_socketio import SocketIO
+import os
+import time
+import numpy as np
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app)
+
+# Variable global para almacenar la ruta del archivo seleccionado
+selected_file_path = None
+
+@app.route('/')
+def index():
+    # Renderiza la página principal
+    return render_template('index.html')
+
+@socketio.on('selected_file')
+def handle_selected_file(json):
+    global selected_file_path
+    # Guarda la ruta del archivo seleccionado
+    selected_file_path = os.path.join('data', json['name'])
+    print(f'Archivo seleccionado: {selected_file_path}')
+    
+    # Guardar los parámetros específicos
+    sigma3 = json['sigma3']
+    H0 = json['H0']
+    D0 = json['D0']
+    DH0 = json['DH0']
+    DV0 = json['DV0']
+    PP0 = json['PP0']
+    
+    # Inicia una tarea en segundo plano para monitorear el archivo
+    socketio.start_background_task(monitor_file, sigma3=sigma3, H0=H0, D0=D0, DH0=DH0, DV0=DV0, PP0=PP0)
+
+@socketio.on('load_static_files')
+def handle_static_files(json):
+    file_paths = json['file_paths']
+    static_params = json['static_params']
+    static_data = []
+    for i, file_name in enumerate(file_paths):
+        file_path = os.path.join('data', file_name)
+        params = static_params[i]
+        data = read_static_file(file_path, params['sigma3'], params['H0'], params['D0'], params['DH0'], params['DV0'], params['PP0'])
+        static_data.append({'file_path': file_name, 'data': data})
+    # Envía los datos estáticos al cliente
+    socketio.emit('static_data', static_data)
+
+def calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure):
+    V0 = (D0 ** 2) * np.pi / 4 * H0  # Volumen inicial del especimen
+    H_C = H0 - DH0 / 10              # Altura del especimen al final de la consolidación
+    A_C = (V0 - DV0) / H_C           # Área del especimen al final de la consolidación
+    e_1 = 0.1 * displacement / H_C   # Deformacion unitaria axial
+    A = A_C / (1 - e_1)              # Área del especimen durante el corte
+    esf_desv = (force / A) * 10000   # Esfuerzo desviador durante la etapa de corte
+    u = pressure - PP0               # Variación de la presión de poros durante el corte
+    sigma3_e = sigma3 - u            # Esfuerzo de confinamiento efectivo
+    sigma1_e = esf_desv + sigma3_e   # Esfuerzo principal efectivo
+    p = (sigma1_e + sigma3_e) / 2
+    q = (sigma1_e - sigma3_e) / 2
+    qp = q / p                       # normalizado
+    return {
+        'displacement': displacement,
+        'force': force,
+        'volume': volume,
+        'pressure': pressure,
+        'esf_desv': esf_desv,
+        'q': q,
+        'p': p,
+        'qp': qp
+    }
+
+def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
+    data = []
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+        for line in lines[1:]:  # Omitir la primera línea si es un encabezado
+            values = line.split(',')
+            try:
+                displacement = float(values[4])
+                force = float(values[3])
+                volume = float(values[5])
+                pressure = float(values[6])
+
+                # Utilizar función para calcular trayectorias de esfuerzos efectivos
+                calculated_data = calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure)
+                data.append(calculated_data)              
+            except ValueError as e:
+                print(f'Error de conversión en la línea: {line} - {e}')
+    return data
+
+def monitor_file(sigma3, H0, D0, DH0, DV0, PP0):
+    global selected_file_path
+    if not selected_file_path:
+        print('Archivo no seleccionado o no encontrado.')
+        return
+    print(f'Monitoreando archivo: {selected_file_path}')
+    current_size = 0
+    while True:
+        new_size = os.path.getsize(selected_file_path)
+        if new_size > current_size:
+            with open(selected_file_path, 'r') as f:
+                f.seek(current_size)
+                lines = f.readlines()
+                for line in lines:
+                    values = line.split(',')
+                    if len(values) < 7 or not values[0].strip().isdigit():  # Ignorar líneas incorrectas o encabezados
+                        continue
+                    try:
+                        displacement = float(values[4])
+                        force = float(values[3])
+                        volume = float(values[5])
+                        pressure = float(values[6])
+
+                        # Utiliza la función para calcular las trayectorias de esfuerzos efectivos
+                        data = calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure)
+
+                        print(f'Emitiendo datos: {data}')
+                        socketio.emit('new_data', data)
+                    except ValueError as e:
+                        print(f'Error de conversión en la línea: {line} - {e}')
+            current_size = new_size
+        time.sleep(1)
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)

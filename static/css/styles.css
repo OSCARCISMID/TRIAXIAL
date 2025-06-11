@@ -1,0 +1,181 @@
+ /* Variables de colores */
+ :root {
+    --main-bg-color: #f5f5f5;
+    --text-color: #333333;
+    --header-bg-color: #4a90e2;
+    --header-text-color: #ffffff;
+    --panel-bg-color: #ffffff;
+    --graph-box-bg-color: #e1e9f0;
+    --sidebar-bg-color: #b9ccd6;
+    --sidebar-text-color: #eef5f7;
+    --openbtn-bg-color: #031122;
+    --openbtn-hover-color: #357ab8;
+}
+
+/* Fuente y colores principales del cuerpo del documento */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--main-bg-color);
+    color: var(--text-color);
+}
+
+/* Estilo del logo */
+.logo {
+    width: 195px; /* Ajusta el tamaño según tus necesidades */
+    height: auto; /* Mantén la proporción de la imagen */
+    float: left; /* Flota a la izquierda */
+    margin: 0; /* Ajusta el margen según tus necesidades */
+}
+
+/* Estilo del encabezado */
+header {
+    text-align: center;
+    padding: 10px;
+    margin: 0;
+    background-color: var(--header-bg-color);
+    color: var(--header-text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Ajuste del título */
+header h1 {
+    margin-right: 25px; /* Ajusta la separación según tus necesidades */
+}
+
+/* Estilo del panel de monitoreo */
+.monitoring-panel {
+    display: flex;
+    justify-content: center;
+    gap: 50px;
+    margin: 0;
+}
+
+.monitoring-panel p {
+    background-color: var(--panel-bg-color);
+    padding: 10px;
+    border-radius: 5px;
+    color: var(--text-color);
+}
+
+.monitoring-panel span {
+    font-size: 54px;
+    color: var(--text-color);
+}
+
+/* Estilo específico para cada valor numérico */
+.monitoring-panel .displacement {
+    color: #FF5733; /* Color para el desplazamiento */
+}
+
+.monitoring-panel .force {
+    color: #33FF57; /* Color para la fuerza */
+}
+
+.monitoring-panel .volume {
+    color: #3357FF; /* Color para el volumen */
+}
+
+.monitoring-panel .pressure {
+    color: #FF33A1; /* Color para la presión */
+}
+
+/* Estilo del contenedor principal de los gráficos */
+.container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    justify-items: center;
+    padding: 20px;
+}
+
+@media (min-width: 600px) {
+    .container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Estilo de las cajas que contienen los gráficos */
+.graph-box {
+    background-color: var(--graph-box-bg-color);
+    padding: 10px;
+    border-radius: 5px;
+    height: 375px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.graph {
+    height: 100%;
+    width: 100%;
+}
+
+/* Estilo del pie de página */
+footer {
+    text-align: center;
+    padding: 2px;
+    background-color: var(--header-bg-color);
+    color: var(--header-text-color);
+}
+
+/* Estilos de la barra lateral */
+.sidebar {
+    height: 100%;
+    width: 250px;
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    background-color: var(--sidebar-bg-color);
+    overflow-x: hidden;
+    transition: 0.5s;
+    padding-top: 120px;
+}
+
+.sidebar a {
+    padding: 15px 30px;
+    text-decoration: none;
+    font-size: 25px;
+    color: var(--sidebar-text-color);
+    display: block;
+    transition: 0.3s;
+    margin-bottom: 15px;
+}
+
+.sidebar .closebtn {
+    position: absolute;
+    top: 0;
+    right: 25px;
+    font-size: 36px;
+    margin-left: 50px;
+}
+
+/* Estilo del botón para abrir la barra lateral */
+.openbtn {
+    font-size: 20px;
+    cursor: pointer;
+    background-color: var(--openbtn-bg-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 2;
+}
+
+.openbtn:hover {
+    background-color: var(--openbtn-hover-color);
+}
+
+/* Ajuste del contenido principal cuando la barra lateral está abierta */
+.sidebar-open #main {
+    margin-left: 250px;
+}
+
+#main {
+    transition: margin-left 0.5s;
+    padding: 16px;
+    margin-left: 250px;
+}
