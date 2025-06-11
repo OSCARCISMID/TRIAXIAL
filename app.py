@@ -118,9 +118,10 @@ def calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, v
 
     Returns
     -------
-    dict
-        Diccionario con desplazamiento, esfuerzo desviador, presiones y 
-        parámetros "p", "q" y su cociente.
+    dict | None
+        Diccionario con desplazamiento, esfuerzo desviador, presiones y
+        parámetros "p", "q" y su cociente. Si ``p`` es cero, ``qp`` se
+        define como ``0.0`` para evitar la división por cero.
     """
     V0 = (D0 ** 2) * np.pi / 4 * H0  # Volumen inicial del especimen
     H_C = H0 - DH0 / 10              # Altura del especimen al final de la consolidación
@@ -133,7 +134,10 @@ def calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, v
     sigma1_e = esf_desv + sigma3_e   # Esfuerzo principal efectivo
     p = (sigma1_e + sigma3_e) / 2
     q = (sigma1_e - sigma3_e) / 2
-    qp = q / p                       # normalizado
+    if p == 0:
+        qp = 0.0
+    else:
+        qp = q / p                   # normalizado
     return {
         'displacement': displacement,
         'force': force,
