@@ -1,4 +1,5 @@
 var socket = io();
+var beepAudio = document.getElementById('beep-sound');
 
 // Definición de trazos para los gráficos en tiempo real
 function createTrace(name) {
@@ -188,6 +189,10 @@ socket.on('static_data', function(static_data) {
         addStaticTraces(file_data);
     });
     plotStaticData();
+    if (beepAudio) {
+        beepAudio.currentTime = 0;
+        beepAudio.play();
+    }
 });
 
 function resetStaticTraces() {
