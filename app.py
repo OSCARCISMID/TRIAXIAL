@@ -26,11 +26,30 @@ def sanitize_filename(name):
 
 @app.route('/')
 def index():
-    # Renderiza la página principal
+    """Renderiza la página principal de la aplicación.
+
+    Returns
+    -------
+    str
+        Plantilla HTML renderizada para el inicio.
+    """
     return render_template('index.html')
 
 @socketio.on('selected_file')
 def handle_selected_file(json):
+    """Procesa el evento de selección de archivo enviado por el cliente.
+
+    Parameters
+    ----------
+    json : dict
+        Datos recibidos que contienen el nombre del archivo y los parámetros
+        experimentales.
+
+    Returns
+    -------
+    None
+        Inicia el monitoreo del archivo y no devuelve un valor explícito.
+    """
     global selected_file_path, monitor_thread, stop_event
     # Guarda la ruta del archivo seleccionado
     filename = sanitize_filename(json.get('name'))
@@ -61,6 +80,18 @@ def handle_selected_file(json):
 
 @socketio.on('load_static_files')
 def handle_static_files(json):
+    """Carga archivos estáticos y envía sus datos procesados al cliente.
+
+    Parameters
+    ----------
+    json : dict
+        Diccionario con las rutas de los archivos y parámetros asociados.
+
+    Returns
+    -------
+    None
+        Emite los datos leídos sin devolver un valor.
+    """
     file_paths = json['file_paths']
     static_params = json['static_params']
     static_data = []
@@ -76,6 +107,21 @@ def handle_static_files(json):
     socketio.emit('static_data', static_data)
 
 def calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure):
+    """Calcula los esfuerzos efectivos y valores derivados.
+
+    Parameters
+    ----------
+    sigma3, H0, D0, DH0, DV0, PP0 : float
+        Valores de referencia obtenidos durante la consolidación.
+    displacement, force, volume, pressure : float
+        Medidas tomadas durante la fase de corte.
+
+    Returns
+    -------
+    dict
+        Diccionario con desplazamiento, esfuerzo desviador, presiones y 
+        parámetros "p", "q" y su cociente.
+    """
     V0 = (D0 ** 2) * np.pi / 4 * H0  # Volumen inicial del especimen
     H_C = H0 - DH0 / 10              # Altura del especimen al final de la consolidación
     A_C = (V0 - DV0) / H_C           # Área del especimen al final de la consolidación
@@ -100,6 +146,20 @@ def calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, v
     }
 
 def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
+    """Lee un archivo de datos y calcula trayectorias de esfuerzos efectivos.
+
+    Parameters
+    ----------
+    file_path : str
+        Ruta al archivo CSV dentro de la carpeta de datos.
+    sigma3, H0, D0, DH0, DV0, PP0 : float
+        Valores utilizados para el cálculo de esfuerzos.
+
+    Returns
+    -------
+    list of dict
+        Lista de diccionarios con los valores calculados para cada fila.
+    """
     data = []
     with open(file_path, 'r') as f:
         lines = f.readlines()
@@ -119,6 +179,20 @@ def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
     return data
 
 def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
+    """Monitorea en tiempo real el archivo seleccionado y emite nuevos datos.
+
+    Parameters
+    ----------
+    stop_event : threading.Event
+        Evento utilizado para detener el monitoreo.
+    sigma3, H0, D0, DH0, DV0, PP0 : float
+        Parámetros necesarios para el cálculo de esfuerzos.
+
+    Returns
+    -------
+    None
+        Función de ejecución continua sin valor de retorno.
+    """
     global selected_file_path
     if not selected_file_path:
         print('Archivo no seleccionado o no encontrado.')
