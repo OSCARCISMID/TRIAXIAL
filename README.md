@@ -13,7 +13,10 @@ Real-time plotting tool for triaxial tests.
    ```bash
    export SECRET_KEY=your-secret-key
    ```
-4. Run the application:
+4. (Optional) Set the `LOG_LEVEL` environment variable or pass `--log-level`
+   when running the application to adjust logging verbosity (e.g. `DEBUG`,
+   `INFO`).
+5. Run the application:
    ```bash
    python app.py
    ```
