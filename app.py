@@ -3,6 +3,7 @@ from flask_socketio import SocketIO
 import os
 import time
 import numpy as np
+import threading
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -10,6 +11,9 @@ socketio = SocketIO(app)
 
 # Variable global para almacenar la ruta del archivo seleccionado
 selected_file_path = None
+# Variables para controlar el hilo de monitoreo
+monitor_thread = None
+monitor_stop_event = threading.Event()
 
 @app.route('/')
 def index():
@@ -18,11 +22,11 @@ def index():
 
 @socketio.on('selected_file')
 def handle_selected_file(json):
-    global selected_file_path
+    global selected_file_path, monitor_thread, monitor_stop_event
     # Guarda la ruta del archivo seleccionado
     selected_file_path = os.path.join('data', json['name'])
     print(f'Archivo seleccionado: {selected_file_path}')
-    
+
     # Guardar los parámetros específicos
     sigma3 = json['sigma3']
     H0 = json['H0']
@@ -31,8 +35,22 @@ def handle_selected_file(json):
     DV0 = json['DV0']
     PP0 = json['PP0']
     
-    # Inicia una tarea en segundo plano para monitorear el archivo
-    socketio.start_background_task(monitor_file, sigma3=sigma3, H0=H0, D0=D0, DH0=DH0, DV0=DV0, PP0=PP0)
+    # Detener el hilo previo si está activo
+    if monitor_thread is not None:
+        monitor_stop_event.set()
+
+    # Crear un nuevo evento y lanzar un nuevo hilo de monitoreo
+    monitor_stop_event = threading.Event()
+    monitor_thread = socketio.start_background_task(
+        monitor_file,
+        monitor_stop_event,
+        sigma3=sigma3,
+        H0=H0,
+        D0=D0,
+        DH0=DH0,
+        DV0=DV0,
+        PP0=PP0,
+    )
 
 @socketio.on('load_static_files')
 def handle_static_files(json):
@@ -90,14 +108,14 @@ def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
                 print(f'Error de conversión en la línea: {line} - {e}')
     return data
 
-def monitor_file(sigma3, H0, D0, DH0, DV0, PP0):
+def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
     global selected_file_path
     if not selected_file_path:
         print('Archivo no seleccionado o no encontrado.')
         return
     print(f'Monitoreando archivo: {selected_file_path}')
     current_size = 0
-    while True:
+    while not stop_event.is_set():
         new_size = os.path.getsize(selected_file_path)
         if new_size > current_size:
             with open(selected_file_path, 'r') as f:
@@ -122,6 +140,7 @@ def monitor_file(sigma3, H0, D0, DH0, DV0, PP0):
                         print(f'Error de conversión en la línea: {line} - {e}')
             current_size = new_size
         time.sleep(1)
+    print('Monitoreo finalizado')
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
