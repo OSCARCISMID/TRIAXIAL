@@ -4,6 +4,12 @@ import os
 import time
 import numpy as np
 import threading
+import logging
+
+logging.basicConfig(
+    level=getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO),
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'change-me')
@@ -57,7 +63,7 @@ def handle_selected_file(json):
         socketio.emit('error', {'message': 'Nombre de archivo inválido'})
         return
     selected_file_path = os.path.join('data', filename)
-    print(f'Archivo seleccionado: {selected_file_path}')
+    logging.info('Archivo seleccionado: %s', selected_file_path)
     
     # Guardar los parámetros específicos
     sigma3 = json['sigma3']
@@ -179,7 +185,7 @@ def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
                 calculated_data = calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure)
                 data.append(calculated_data)              
             except ValueError as e:
-                print(f'Error de conversión en la línea: {line} - {e}')
+                logging.error('Error de conversión en la línea: %s - %s', line, e)
     return data
 
 def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
@@ -199,9 +205,9 @@ def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
     """
     global selected_file_path
     if not selected_file_path:
-        print('Archivo no seleccionado o no encontrado.')
+        logging.error('Archivo no seleccionado o no encontrado.')
         return
-    print(f'Monitoreando archivo: {selected_file_path}')
+    logging.info('Monitoreando archivo: %s', selected_file_path)
     current_size = 0
     while not stop_event.is_set():
         new_size = os.path.getsize(selected_file_path)
@@ -222,12 +228,24 @@ def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
                         # Utiliza la función para calcular las trayectorias de esfuerzos efectivos
                         data = calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure)
 
-                        print(f'Emitiendo datos: {data}')
+                        logging.debug('Emitiendo datos: %s', data)
                         socketio.emit('new_data', data)
                     except ValueError as e:
-                        print(f'Error de conversión en la línea: {line} - {e}')
+                        logging.error('Error de conversión en la línea: %s - %s', line, e)
             current_size = new_size
         time.sleep(1)
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Run the TRIAXIAL app')
+    parser.add_argument(
+        '--log-level',
+        default=os.environ.get('LOG_LEVEL', 'INFO'),
+        help='Set logging level (default: %(default)s)'
+    )
+    args = parser.parse_args()
+    logging.getLogger().setLevel(
+        getattr(logging, args.log_level.upper(), logging.INFO)
+    )
     socketio.run(app, debug=True)
