@@ -11,6 +11,15 @@ socketio = SocketIO(app)
 # Variable global para almacenar la ruta del archivo seleccionado
 selected_file_path = None
 
+
+def sanitize_filename(name):
+    """Return a safe file name within the data directory or None if invalid."""
+    if not isinstance(name, str):
+        return None
+    if os.path.isabs(name) or '..' in name or '/' in name or '\\' in name:
+        return None
+    return os.path.basename(name)
+
 @app.route('/')
 def index():
     # Renderiza la página principal
@@ -20,7 +29,11 @@ def index():
 def handle_selected_file(json):
     global selected_file_path
     # Guarda la ruta del archivo seleccionado
-    selected_file_path = os.path.join('data', json['name'])
+    filename = sanitize_filename(json.get('name'))
+    if not filename:
+        socketio.emit('error', {'message': 'Nombre de archivo inválido'})
+        return
+    selected_file_path = os.path.join('data', filename)
     print(f'Archivo seleccionado: {selected_file_path}')
     
     # Guardar los parámetros específicos
@@ -40,10 +53,13 @@ def handle_static_files(json):
     static_params = json['static_params']
     static_data = []
     for i, file_name in enumerate(file_paths):
-        file_path = os.path.join('data', file_name)
+        safe_name = sanitize_filename(file_name)
+        if not safe_name:
+            continue
+        file_path = os.path.join('data', safe_name)
         params = static_params[i]
         data = read_static_file(file_path, params['sigma3'], params['H0'], params['D0'], params['DH0'], params['DV0'], params['PP0'])
-        static_data.append({'file_path': file_name, 'data': data})
+        static_data.append({'file_path': safe_name, 'data': data})
     # Envía los datos estáticos al cliente
     socketio.emit('static_data', static_data)
 
