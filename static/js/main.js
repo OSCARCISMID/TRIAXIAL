@@ -1,6 +1,27 @@
 var socket = io();
 var beepAudio = document.getElementById('beep-sound');
 var monitoringStarted = false;
+var beepLooping = false;
+
+function startBeepLoop() {
+    if (!beepAudio || beepLooping) {
+        return;
+    }
+    beepAudio.loop = true;
+    beepAudio.currentTime = 0;
+    beepAudio.play();
+    beepLooping = true;
+}
+
+function stopBeepLoop() {
+    if (!beepAudio || !beepLooping) {
+        return;
+    }
+    beepAudio.pause();
+    beepAudio.currentTime = 0;
+    beepAudio.loop = false;
+    beepLooping = false;
+}
 
 // Definición de trazos para los gráficos en tiempo real
 function createTrace(name) {
@@ -85,6 +106,7 @@ document.getElementById('file-input').addEventListener('change', function(event)
                 DV0: parseFloat(document.getElementById('DV0').value),
                 PP0: parseFloat(document.getElementById('PP0').value)
             };
+            stopBeepLoop();
             monitoringStarted = false;
             socket.emit('selected_file', params);
         };
@@ -110,6 +132,7 @@ document.getElementById('static-file-input').addEventListener('change', function
         console.log(`Archivos estáticos seleccionados: ${file_paths}`);
         document.getElementById('static-file-params').style.display = 'block';
         document.getElementById('submit-static-params').onclick = function() {
+            stopBeepLoop();
             var static_params = [];
             for (var i = 0; i < files.length; i++) {
                 static_params.push(getStaticFileParams(i));
@@ -154,9 +177,8 @@ function getStaticFileParams(index) {
 
 socket.on('new_data', function(data) {
     console.log('Datos recibidos:', data);
-    if (beepAudio && !monitoringStarted) {
-        beepAudio.currentTime = 0;
-        beepAudio.play();
+    if (!monitoringStarted) {
+        startBeepLoop();
         monitoringStarted = true;
     }
     updateMonitoringPanel(data);
