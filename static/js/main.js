@@ -132,7 +132,6 @@ document.getElementById('static-file-input').addEventListener('change', function
         console.log(`Archivos estáticos seleccionados: ${file_paths}`);
         document.getElementById('static-file-params').style.display = 'block';
         document.getElementById('submit-static-params').onclick = function() {
-            stopBeepLoop();
             var static_params = [];
             for (var i = 0; i < files.length; i++) {
                 static_params.push(getStaticFileParams(i));
