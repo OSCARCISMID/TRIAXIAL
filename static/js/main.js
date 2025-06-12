@@ -1,6 +1,27 @@
 var socket = io();
 var beepAudio = document.getElementById('beep-sound');
 var monitoringStarted = false;
+var beepLooping = false;
+
+function startBeepLoop() {
+    if (!beepAudio || beepLooping) {
+        return;
+    }
+    beepAudio.loop = true;
+    beepAudio.currentTime = 0;
+    beepAudio.play();
+    beepLooping = true;
+}
+
+function stopBeepLoop() {
+    if (!beepAudio || !beepLooping) {
+        return;
+    }
+    beepAudio.pause();
+    beepAudio.currentTime = 0;
+    beepAudio.loop = false;
+    beepLooping = false;
+}
 
 // Definición de trazos para los gráficos en tiempo real
 function createTrace(name) {
@@ -154,9 +175,8 @@ function getStaticFileParams(index) {
 
 socket.on('new_data', function(data) {
     console.log('Datos recibidos:', data);
-    if (beepAudio && !monitoringStarted) {
-        beepAudio.currentTime = 0;
-        beepAudio.play();
+    if (!monitoringStarted) {
+        startBeepLoop();
         monitoringStarted = true;
     }
     updateMonitoringPanel(data);
