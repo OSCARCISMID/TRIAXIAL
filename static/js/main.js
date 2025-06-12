@@ -106,7 +106,6 @@ document.getElementById('file-input').addEventListener('change', function(event)
                 DV0: parseFloat(document.getElementById('DV0').value),
                 PP0: parseFloat(document.getElementById('PP0').value)
             };
-            stopBeepLoop();
             monitoringStarted = false;
             socket.emit('selected_file', params);
         };
