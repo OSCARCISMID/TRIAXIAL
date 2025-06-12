@@ -209,6 +209,9 @@ def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
         return
     logging.info('Monitoreando archivo: %s', selected_file_path)
     current_size = 0
+    last_update = time.time()
+    beep_stopped = False
+    timeout = 5  # segundos sin actualizaciones antes de detener el sonido
     while not stop_event.is_set():
         new_size = os.path.getsize(selected_file_path)
         if new_size > current_size:
@@ -230,9 +233,15 @@ def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
 
                         logging.debug('Emitiendo datos: %s', data)
                         socketio.emit('new_data', data)
+                        last_update = time.time()
+                        beep_stopped = False
                     except ValueError as e:
                         logging.error('Error de conversión en la línea: %s - %s', line, e)
             current_size = new_size
+        else:
+            if not beep_stopped and time.time() - last_update >= timeout:
+                socketio.emit('stop_beep')
+                beep_stopped = True
         time.sleep(1)
 
 if __name__ == '__main__':

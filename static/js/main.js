@@ -185,6 +185,11 @@ socket.on('new_data', function(data) {
     redrawGraphs();
 });
 
+socket.on('stop_beep', function() {
+    stopBeepLoop();
+    monitoringStarted = false;
+});
+
 function updateMonitoringPanel(data) {
     document.getElementById('displacement').innerText = data.displacement.toFixed(3);
     document.getElementById('force').innerText = data.force.toFixed(2);
