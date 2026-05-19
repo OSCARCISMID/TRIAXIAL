@@ -21,6 +21,13 @@ selected_file_path = None
 monitor_thread = None
 stop_event = None
 
+DEFAULT_SENSOR_MAPPING = {
+    'force_col': 'DEV 1 INPUT 1',
+    'displacement_col': 'DEV 1 INPUT 2',
+    'volume_col': 'DEV 1 INPUT 3',
+    'pressure_col': 'DEV 1 INPUT 4',
+}
+
 
 def sanitize_filename(name):
     """Return a safe file name within the data directory or None if invalid."""
@@ -29,6 +36,39 @@ def sanitize_filename(name):
     if os.path.isabs(name) or '..' in name or '/' in name or '\\' in name:
         return None
     return os.path.basename(name)
+
+
+def normalize_header_name(value):
+    return value.strip().strip('"').upper()
+
+
+def parse_header_map(header_line):
+    raw_headers = [item.strip() for item in header_line.strip().split(',') if item.strip()]
+    return {normalize_header_name(name): idx for idx, name in enumerate(raw_headers)}
+
+
+def get_selected_columns(params):
+    mapping = DEFAULT_SENSOR_MAPPING.copy()
+    if isinstance(params, dict):
+        for key in mapping:
+            user_value = params.get(key)
+            if isinstance(user_value, str) and user_value.strip():
+                mapping[key] = user_value.strip()
+    return mapping
+
+
+def extract_measurements(values, header_map, selected_columns):
+    force_idx = header_map[normalize_header_name(selected_columns['force_col'])]
+    displacement_idx = header_map[normalize_header_name(selected_columns['displacement_col'])]
+    volume_idx = header_map[normalize_header_name(selected_columns['volume_col'])]
+    pressure_idx = header_map[normalize_header_name(selected_columns['pressure_col'])]
+
+    return (
+        float(values[displacement_idx]),
+        float(values[force_idx]),
+        float(values[volume_idx]),
+        float(values[pressure_idx]),
+    )
 
 @app.route('/')
 def index():
@@ -81,7 +121,15 @@ def handle_selected_file(json):
     # Crear un nuevo evento y lanzar el hilo de monitoreo
     stop_event = threading.Event()
     monitor_thread = socketio.start_background_task(
-        monitor_file, stop_event, sigma3=sigma3, H0=H0, D0=D0, DH0=DH0, DV0=DV0, PP0=PP0
+        monitor_file,
+        stop_event,
+        sigma3=sigma3,
+        H0=H0,
+        D0=D0,
+        DH0=DH0,
+        DV0=DV0,
+        PP0=PP0,
+        selected_columns=get_selected_columns(json),
     )
 
 @socketio.on('load_static_files')
@@ -107,7 +155,16 @@ def handle_static_files(json):
             continue
         file_path = os.path.join('data', safe_name)
         params = static_params[i]
-        data = read_static_file(file_path, params['sigma3'], params['H0'], params['D0'], params['DH0'], params['DV0'], params['PP0'])
+        data = read_static_file(
+            file_path,
+            params['sigma3'],
+            params['H0'],
+            params['D0'],
+            params['DH0'],
+            params['DV0'],
+            params['PP0'],
+            get_selected_columns(params),
+        )
         static_data.append({'file_path': safe_name, 'data': data})
     # Envía los datos estáticos al cliente
     socketio.emit('static_data', static_data)
@@ -155,7 +212,7 @@ def calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, v
         'qp': qp
     }
 
-def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
+def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0, selected_columns=None):
     """Lee un archivo de datos y calcula trayectorias de esfuerzos efectivos.
 
     Parameters
@@ -171,15 +228,22 @@ def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
         Lista de diccionarios con los valores calculados para cada fila.
     """
     data = []
+    selected_columns = selected_columns or DEFAULT_SENSOR_MAPPING
     with open(file_path, 'r') as f:
         lines = f.readlines()
+        if not lines:
+            return data
+        header_map = parse_header_map(lines[0])
+        required_headers = [normalize_header_name(name) for name in selected_columns.values()]
+        if not all(header in header_map for header in required_headers):
+            logging.error('No se encontraron todas las columnas solicitadas en %s', file_path)
+            return data
         for line in lines[1:]:  # Omitir la primera línea si es un encabezado
             values = line.split(',')
             try:
-                displacement = float(values[4])
-                force = float(values[3])
-                volume = float(values[5])
-                pressure = float(values[6])
+                displacement, force, volume, pressure = extract_measurements(
+                    values, header_map, selected_columns
+                )
 
                 # Utilizar función para calcular trayectorias de esfuerzos efectivos
                 calculated_data = calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure)
@@ -188,7 +252,7 @@ def read_static_file(file_path, sigma3, H0, D0, DH0, DV0, PP0):
                 logging.error('Error de conversión en la línea: %s - %s', line, e)
     return data
 
-def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
+def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0, selected_columns=None):
     """Monitorea en tiempo real el archivo seleccionado y emite nuevos datos.
 
     Parameters
@@ -212,6 +276,8 @@ def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
     last_update = time.time()
     beep_stopped = False
     timeout = 5  # segundos sin actualizaciones antes de detener el sonido
+    selected_columns = selected_columns or DEFAULT_SENSOR_MAPPING
+    header_map = None
     while not stop_event.is_set():
         new_size = os.path.getsize(selected_file_path)
         if new_size > current_size:
@@ -219,14 +285,16 @@ def monitor_file(stop_event, sigma3, H0, D0, DH0, DV0, PP0):
                 f.seek(current_size)
                 lines = f.readlines()
                 for line in lines:
+                    if header_map is None and 'INDEX' in line.upper() and 'TIME' in line.upper():
+                        header_map = parse_header_map(line)
+                        continue
                     values = line.split(',')
-                    if len(values) < 7 or not values[0].strip().isdigit():  # Ignorar líneas incorrectas o encabezados
+                    if len(values) < 2 or not values[0].strip().isdigit() or header_map is None:
                         continue
                     try:
-                        displacement = float(values[4])
-                        force = float(values[3])
-                        volume = float(values[5])
-                        pressure = float(values[6])
+                        displacement, force, volume, pressure = extract_measurements(
+                            values, header_map, selected_columns
+                        )
 
                         # Utiliza la función para calcular las trayectorias de esfuerzos efectivos
                         data = calculate_effective_pq(sigma3, H0, D0, DH0, DV0, PP0, displacement, force, volume, pressure)

@@ -104,7 +104,11 @@ document.getElementById('file-input').addEventListener('change', function(event)
                 D0: parseFloat(document.getElementById('D0').value),
                 DH0: parseFloat(document.getElementById('DH0').value),
                 DV0: parseFloat(document.getElementById('DV0').value),
-                PP0: parseFloat(document.getElementById('PP0').value)
+                PP0: parseFloat(document.getElementById('PP0').value),
+                force_col: document.getElementById('force_col').value,
+                displacement_col: document.getElementById('displacement_col').value,
+                volume_col: document.getElementById('volume_col').value,
+                pressure_col: document.getElementById('pressure_col').value
             };
             stopBeepLoop();
             monitoringStarted = false;
@@ -157,6 +161,14 @@ function createStaticFileParamsForm(file, index) {
         <input type="number" id="DV0_${index}" name="DV0_${index}" step="0.01" value="0"><br>
         <label for="PP0_${index}">PP0:</label>
         <input type="number" id="PP0_${index}" name="PP0_${index}" step="0.01" value="0"><br>
+        <label for="force_col_${index}">Fuerza:</label>
+        <input type="text" id="force_col_${index}" name="force_col_${index}" value="DEV 1 INPUT 1"><br>
+        <label for="displacement_col_${index}">Desplazamiento:</label>
+        <input type="text" id="displacement_col_${index}" name="displacement_col_${index}" value="DEV 1 INPUT 2"><br>
+        <label for="volume_col_${index}">Volumen:</label>
+        <input type="text" id="volume_col_${index}" name="volume_col_${index}" value="DEV 1 INPUT 3"><br>
+        <label for="pressure_col_${index}">Presión:</label>
+        <input type="text" id="pressure_col_${index}" name="pressure_col_${index}" value="DEV 1 INPUT 4"><br>
     `;
     return div;
 }
@@ -170,7 +182,11 @@ function getStaticFileParams(index) {
         D0: parseFloat(document.getElementById(`D0_${index}`).value),
         DH0: parseFloat(document.getElementById(`DH0_${index}`).value),
         DV0: parseFloat(document.getElementById(`DV0_${index}`).value),
-        PP0: parseFloat(document.getElementById(`PP0_${index}`).value)
+        PP0: parseFloat(document.getElementById(`PP0_${index}`).value),
+        force_col: document.getElementById(`force_col_${index}`).value,
+        displacement_col: document.getElementById(`displacement_col_${index}`).value,
+        volume_col: document.getElementById(`volume_col_${index}`).value,
+        pressure_col: document.getElementById(`pressure_col_${index}`).value
     };
 }
 
