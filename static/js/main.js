@@ -3,6 +3,72 @@ var beepAudio = document.getElementById('beep-sound');
 var monitoringStarted = false;
 var beepLooping = false;
 
+var DEFAULT_SENSOR_MAPPING = {
+    force_col: 'DEV 7 INPUT 1',
+    displacement_col: 'DEV 7 INPUT 2',
+    volume_col: 'DEV 4 INPUT 1',
+    pressure_col: 'DEV 4 INPUT 2'
+};
+
+function normalizeHeader(value) {
+    return value.trim().replace(/^"|"$/g, '').toUpperCase();
+}
+
+function inferColumnsFromHeaderLine(headerLine) {
+    var inferred = Object.assign({}, DEFAULT_SENSOR_MAPPING);
+    if (!headerLine) {
+        return inferred;
+    }
+
+    var headers = headerLine
+        .split(',')
+        .map(function(item) { return item.trim(); })
+        .filter(function(item) { return item.length > 0; });
+
+    var inputColumns = headers.filter(function(header) {
+        return /^DEV\s+\d+\s+INPUT\s+[12]$/i.test(normalizeHeader(header));
+    });
+
+    var pairs = [];
+    for (var i = 0; i + 1 < inputColumns.length; i++) {
+        var first = normalizeHeader(inputColumns[i]);
+        var second = normalizeHeader(inputColumns[i + 1]);
+        if (first.endsWith('INPUT 1') && second.endsWith('INPUT 2')) {
+            pairs.push({ input1: inputColumns[i], input2: inputColumns[i + 1] });
+            i += 1;
+        }
+    }
+
+    if (pairs.length >= 2) {
+        inferred.volume_col = pairs[0].input1;
+        inferred.pressure_col = pairs[0].input2;
+        inferred.force_col = pairs[1].input1;
+        inferred.displacement_col = pairs[1].input2;
+    }
+
+    return inferred;
+}
+
+function applyMappingToForm(mapping, suffix) {
+    ['force_col', 'displacement_col', 'volume_col', 'pressure_col'].forEach(function(key) {
+        var element = document.getElementById(key + suffix);
+        if (element && mapping[key]) {
+            element.value = mapping[key];
+        }
+    });
+}
+
+function readHeaderAndFillDefaults(file, suffix) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var content = String(e.target.result || '');
+        var firstLine = content.split(/\r?\n/)[0] || '';
+        var mapping = inferColumnsFromHeaderLine(firstLine);
+        applyMappingToForm(mapping, suffix);
+    };
+    reader.readAsText(file.slice(0, 4096));
+}
+
 function startBeepLoop() {
     if (!beepAudio || beepLooping) {
         return;
@@ -96,6 +162,8 @@ document.getElementById('file-input').addEventListener('change', function(event)
     if (file) {
         console.log(`Archivo seleccionado: ${file.name}`);
         document.getElementById('file-params').style.display = 'block';
+        applyMappingToForm(DEFAULT_SENSOR_MAPPING, '');
+        readHeaderAndFillDefaults(file, '');
         document.getElementById('submit-params').onclick = function() {
             var params = {
                 name: file.name,
@@ -104,7 +172,11 @@ document.getElementById('file-input').addEventListener('change', function(event)
                 D0: parseFloat(document.getElementById('D0').value),
                 DH0: parseFloat(document.getElementById('DH0').value),
                 DV0: parseFloat(document.getElementById('DV0').value),
-                PP0: parseFloat(document.getElementById('PP0').value)
+                PP0: parseFloat(document.getElementById('PP0').value),
+                force_col: document.getElementById('force_col').value,
+                displacement_col: document.getElementById('displacement_col').value,
+                volume_col: document.getElementById('volume_col').value,
+                pressure_col: document.getElementById('pressure_col').value
             };
             stopBeepLoop();
             monitoringStarted = false;
@@ -157,7 +229,19 @@ function createStaticFileParamsForm(file, index) {
         <input type="number" id="DV0_${index}" name="DV0_${index}" step="0.01" value="0"><br>
         <label for="PP0_${index}">PP0:</label>
         <input type="number" id="PP0_${index}" name="PP0_${index}" step="0.01" value="0"><br>
+        <label for="force_col_${index}">Fuerza:</label>
+        <input type="text" id="force_col_${index}" name="force_col_${index}" value="DEV 7 INPUT 1"><br>
+        <label for="displacement_col_${index}">Desplazamiento:</label>
+        <input type="text" id="displacement_col_${index}" name="displacement_col_${index}" value="DEV 7 INPUT 2"><br>
+        <label for="volume_col_${index}">Volumen:</label>
+        <input type="text" id="volume_col_${index}" name="volume_col_${index}" value="DEV 4 INPUT 1"><br>
+        <label for="pressure_col_${index}">Presión:</label>
+        <input type="text" id="pressure_col_${index}" name="pressure_col_${index}" value="DEV 4 INPUT 2"><br>
     `;
+    setTimeout(function() {
+        applyMappingToForm(DEFAULT_SENSOR_MAPPING, `_${index}`);
+        readHeaderAndFillDefaults(file, `_${index}`);
+    }, 0);
     return div;
 }
 
@@ -170,7 +254,11 @@ function getStaticFileParams(index) {
         D0: parseFloat(document.getElementById(`D0_${index}`).value),
         DH0: parseFloat(document.getElementById(`DH0_${index}`).value),
         DV0: parseFloat(document.getElementById(`DV0_${index}`).value),
-        PP0: parseFloat(document.getElementById(`PP0_${index}`).value)
+        PP0: parseFloat(document.getElementById(`PP0_${index}`).value),
+        force_col: document.getElementById(`force_col_${index}`).value,
+        displacement_col: document.getElementById(`displacement_col_${index}`).value,
+        volume_col: document.getElementById(`volume_col_${index}`).value,
+        pressure_col: document.getElementById(`pressure_col_${index}`).value
     };
 }
 
